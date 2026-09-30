@@ -1,5 +1,8 @@
 # Chile 2027: como colocar o site no ar
 
+**Site no ar:** https://amigosnochile.github.io
+**Repositório:** https://github.com/amigosnochile/amigosnochile.github.io
+
 O site é um arquivo só (`index.html`). Os dados ficam no Supabase e a página é hospedada no GitHub Pages, os dois de graça. Quem entra precisa da senha do grupo.
 
 Você faz isso uma vez só, em uns 20 minutos.
