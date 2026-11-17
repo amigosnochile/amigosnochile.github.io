@@ -1,11 +1,12 @@
 // Meu Dia: configuração. Veja o LEIA-ME.md, passo 4.
 // 1. No Supabase, clique em "Connect" e role até o quadro ".env.local".
-// 2. Copie as duas linhas e cole no lugar de COLE_AQUI.
+// (já preenchido com o projeto meu-dia).
 // A chave "publishable" pode ficar pública: sem a senha ela não abre nada.
 // NUNCA cole aqui a "secret key" nem a "service_role".
 
 const COLADO_DO_SUPABASE = `
-COLE_AQUI
+NEXT_PUBLIC_SUPABASE_URL=https://rdpqmoronqayyrnijswc.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_maYzk6aGManOa7PVnrpVIw_7pbl7v50
 `;
 
 // ID do cliente OAuth do Google (termina em .apps.googleusercontent.com). Passo 6 do LEIA-ME.
