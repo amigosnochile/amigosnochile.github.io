@@ -108,6 +108,9 @@ main{padding:18px 0 calc(110px + env(safe-area-inset-bottom))}
 .habs{display:flex;flex-wrap:wrap;gap:8px}
 .chip{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-weight:600}
 .chip.on{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
+.chip.pend{background:var(--c3-soft);border-color:var(--c3);color:var(--ink)}
+.chip.pend small{color:var(--muted);font-weight:500}
+.pend-tit{font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--c3);margin-bottom:6px}
 .hab-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
 .chk{width:44px;height:44px;border-radius:12px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:1.3rem;flex:none}
 .chk.on{background:var(--ok);border-color:var(--ok);color:var(--surface)}
@@ -379,6 +382,7 @@ function vHoje() {
   const lt = linhaTempo(iso);
   const habs = S.habitos.filter(h => h.ativo);
   const feitos = new Set(S.checks.filter(c => c.dia === iso).map(c => c.habito_id));
+  const pend = S.habitos.map(h => ({ h, p: pendencia(h) })).filter(x => x.p);
   const prox = S.metas.filter(m => !m.concluida).map(m => ({ m, p: S.passos.find(p => p.meta_id === m.id && !p.feito) })).filter(x => x.p).slice(0, 3);
   return `
   <section class="sec">
@@ -388,6 +392,7 @@ function vHoje() {
   </section>
   ${habs.length ? `<section class="sec">
     <div class="sec-h"><h2>Hábitos de hoje</h2><span class="muted small">${feitos.size} de ${habs.length}</span></div>
+    ${pend.length ? `<p class="pend-tit">Ficou pendente</p><div class="habs" style="margin-bottom:10px">${pend.map(({ h, p }) => `<button class="chip pend" data-acao="check-pend" data-id="${h.id}">↺ ${esc(h.nome)} <small>${p.rot}</small></button>`).join('')}</div>` : ''}
     <div class="habs">${habs.map(h => `<button class="chip ${feitos.has(h.id) ? 'on' : ''}" data-acao="check" data-id="${h.id}" aria-pressed="${feitos.has(h.id)}">${feitos.has(h.id) ? '✓' : esc(h.emoji || '○')} ${esc(h.nome)}</button>`).join('')}</div>
   </section>` : ''}
   <section class="sec">
@@ -480,16 +485,29 @@ function sequencia(hid) {
   while (dias.has(iso)) { n++; iso = maisDias(iso, -1); }
   return { n, dias };
 }
+// Hábito com "levar" que não foi feito ontem fica pendente até ser marcado (o check vai para ontem)
+function pendencia(h) {
+  if (!h.levar || !h.ativo) return null;
+  const ontem = maisDias(hojeISO(), -1);
+  if (isoDe(new Date(h.criado_em)) > ontem) return null;
+  const dias = new Set(S.checks.filter(c => c.habito_id === h.id).map(c => c.dia));
+  if (dias.has(ontem)) return null;
+  let desde = ontem, n = 0;
+  while (n < 60 && !dias.has(maisDias(desde, -1)) && isoDe(new Date(h.criado_em)) <= maisDias(desde, -1)) { desde = maisDias(desde, -1); n++; }
+  return { desde, rot: desde === ontem ? 'de ontem' : `desde ${dataBonita(desde, { weekday: 'short', day: 'numeric' }).replace('.', '')}` };
+}
 function vHabitos() {
   const hoje = hojeISO();
   const row = h => {
-    const { n, dias } = sequencia(h.id), on = dias.has(hoje);
+    const { n, dias } = sequencia(h.id), on = dias.has(hoje), pend = pendencia(h);
     const sete = [...Array(7)].map((_, i) => maisDias(hoje, i - 6));
     return `<div class="card hab-row" style="${h.ativo ? '' : 'opacity:.55'}">
       <button class="chk ${on ? 'on' : ''}" data-acao="check" data-id="${h.id}" aria-pressed="${on}" aria-label="${on ? 'Desmarcar' : 'Marcar'} ${esc(h.nome)} hoje">${on ? '✓' : esc(h.emoji || '')}</button>
       <div class="clic" data-acao="editar-habito" data-id="${h.id}"><p style="font-weight:600">${esc(h.nome)}${h.horario ? ` <span class="muted small">· ${fmtMin(hm(h.horario))}</span>` : ''}${h.ativo ? '' : ' <span class="tag">pausado</span>'}</p>
-        <div class="dots" aria-label="Últimos 7 dias">${sete.map(d => `<i class="${dias.has(d) ? 'on' : ''}" title="${dataBonita(d, { weekday: 'short', day: 'numeric' })}"></i>`).join('')}</div></div>
-      <p class="streak">${n}<small>${n === 1 ? 'dia' : 'dias'}</small></p></div>`;
+        <div class="dots" aria-label="Últimos 7 dias">${sete.map(d => `<i class="${dias.has(d) ? 'on' : ''}" title="${dataBonita(d, { weekday: 'short', day: 'numeric' })}"></i>`).join('')}</div>
+        ${h.levar ? `<p class="muted small">↺ leva pro dia seguinte</p>` : ''}</div>
+      <p class="streak">${n}<small>${n === 1 ? 'dia' : 'dias'}</small></p>
+      ${pend ? `<button class="chip pend" style="grid-column:1/-1;justify-content:center" data-acao="check-pend" data-id="${h.id}">↺ Pendente ${pend.rot}: marcar feito</button>` : ''}</div>`;
   };
   return `<div class="sec-h"><h2>Hábitos</h2><button class="btn pri" data-acao="novo-habito">+ Hábito</button></div>
     ${S.habitos.length ? `<div class="lista">${S.habitos.map(row).join('')}</div><p class="muted small" style="margin-top:10px">Esqueceu um dia? Tudo bem. A sequência recomeça amanhã.</p>`
@@ -694,10 +712,11 @@ function formHabito(h = {}) {
       { nome: 'horario', rotulo: 'Horário do lembrete', tipo: 'time', valor: (h.horario || '').slice(0, 5) },
       { html: `</div>` },
       { html: '<p class="dica muted small" style="margin:-4px 0 10px">Deixe o horário vazio se não quiser lembrete.</p>' },
+      { nome: 'levar', rotulo: 'Se eu não fizer, levar pro dia seguinte', tipo: 'check', valor: h.levar },
       ...(novo ? [] : [{ nome: 'ativo', rotulo: 'Ativo (desmarque para pausar)', tipo: 'check', valor: h.ativo }]),
     ],
     salvar: async v => {
-      const row = { nome: v.nome, emoji: v.emoji || null, horario: v.horario || null };
+      const row = { nome: v.nome, emoji: v.emoji || null, horario: v.horario || null, levar: v.levar };
       await db(novo ? sb.from('habitos').insert({ ...row, ordem: S.habitos.length }) : sb.from('habitos').update({ ...row, ativo: v.ativo }).eq('id', h.id), 'Hábito salvo');
     },
     apagar: novo ? null : () => db(sb.from('habitos').delete().eq('id', h.id), 'Hábito apagado'),
@@ -820,6 +839,12 @@ document.addEventListener('click', async e => {
       case 'novo-habito': formHabito(); break;
       case 'editar-habito': formHabito(S.habitos.find(h => h.id === id)); break;
       case 'check': await toggleCheck(id); break;
+      case 'check-pend': {
+        const dia = maisDias(hojeISO(), -1);
+        S.checks.push({ habito_id: id, dia }); render();
+        await db(sb.from('habito_checks').upsert({ habito_id: id, dia }, { onConflict: 'habito_id,dia', ignoreDuplicates: true }), 'Pendência resolvida ✓');
+        break;
+      }
       case 'inbox-feito': case 'inbox-apagar':
         S.inbox = S.inbox.filter(i => i.id !== id); render();
         await db(sb.from('inbox').delete().eq('id', id), a === 'inbox-feito' ? 'Feito! ✓' : 'Apagado'); break;
