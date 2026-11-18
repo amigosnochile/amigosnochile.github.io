@@ -270,7 +270,7 @@ function eventosDoDia(iso) {
 function itensDoDia(iso) {
   const it = [
     ...blocosDoDia(iso).map(b => ({ tipo: 'bloco', id: b.id, titulo: b.titulo, ini: hm(b.inicio), fim: hm(b.fim), cor: b.cor, sub: b.nota })),
-    ...eventosDoDia(iso).map(e => ({ tipo: 'evento', id: e.id, titulo: e.titulo, ini: e.dia_inteiro ? -1 : minDe(e.inicio), fim: e.dia_inteiro ? -1 : (e.fim ? minDe(e.fim) : minDe(e.inicio) + 60), cor: 'c3', sub: e.local, google: !!e.google_id })),
+    ...eventosDoDia(iso).map(e => ({ tipo: 'evento', id: e.id, titulo: e.titulo, ini: e.dia_inteiro ? -1 : minDe(e.inicio), fim: e.dia_inteiro ? -1 : (e.fim ? minDe(e.fim) : minDe(e.inicio) + 60), cor: 'c3', sub: [e.local, e.agenda].filter(Boolean).join(' · '), google: !!e.google_id })),
   ];
   return it.sort((a, b) => a.ini - b.ini || (a.tipo === 'evento' ? -1 : 1));
 }
@@ -496,7 +496,7 @@ function vConfig() {
 
   <section class="sec"><div class="sec-h"><h2>Google Agenda</h2></div><div class="card">
     <p class="muted small" style="margin-bottom:10px">${S.googleOk === null ? 'Verificando…' : S.googleOk ? 'Conectada ✓. Os compromissos vêm do Google e o que você cria aqui vai para lá.' : 'Não conectada.'}</p>
-    ${C.googleClientId ? `<div class="duo">${S.googleOk ? `<button class="btn" data-acao="sync">Atualizar agora</button><button class="btn bad" data-acao="desconectar-google">Desconectar</button>` : `<button class="btn pri" data-acao="conectar-google">Conectar Google Agenda</button>`}</div>
+    ${C.googleClientId ? `<div class="duo">${S.googleOk ? `<button class="btn" data-acao="sync">Atualizar agora</button><button class="btn" data-acao="conectar-google">Reconectar</button></div><div style="margin-top:8px"><button class="btn ghost bad" style="padding:0" data-acao="desconectar-google">Desconectar</button>` : `<button class="btn pri" data-acao="conectar-google">Conectar Google Agenda</button>`}</div>
       ${!S.googleOk && standalone ? '<p class="muted small" style="margin-top:8px">Se a janela do Google não abrir aqui, faça esta conexão uma vez pelo Safari, no mesmo endereço.</p>' : ''}`
       : '<p class="aviso">Falta colocar o “googleClientId” no config.js (veja o LEIA-ME).</p>'}
   </div></section>
@@ -743,11 +743,11 @@ async function conectarGoogle() {
   await carregarScript('https://accounts.google.com/gsi/client');
   const client = google.accounts.oauth2.initCodeClient({
     client_id: C.googleClientId,
-    scope: 'https://www.googleapis.com/auth/calendar.events',
+    scope: 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly',
     ux_mode: 'popup',
     callback: async r => {
       if (r.error) return toast('Google: ' + r.error);
-      try { const x = await funcao('conectar-google', { code: r.code }); S.googleOk = true; toast(`Google conectado ✓ (${x.eventos ?? 0} compromissos)`); await carregar(); }
+      try { const x = await funcao('conectar-google', { code: r.code }); S.googleOk = true; toast(x.google ? `Google conectado ✓ (${x.eventos ?? 0} compromissos de ${x.agendas ?? 1} agendas)` : (x.erro || 'Conectou, mas não consegui ler a agenda')); await carregar(); }
       catch (e) { toast(e.message); }
     },
   });
