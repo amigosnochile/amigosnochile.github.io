@@ -10,7 +10,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_maYzk6aGManOa7PVnrpVIw_7pbl7
 `;
 
 // ID do cliente OAuth do Google (termina em .apps.googleusercontent.com). Passo 6 do LEIA-ME.
-const GOOGLE_CLIENT_ID = "";
+const GOOGLE_CLIENT_ID = "152657632962-74j9t4eob8aiclccl5thmfo7k2v1qtj0.apps.googleusercontent.com";
 
 // Chave pública das notificações (pode ficar pública).
 const VAPID_PUBLIC_KEY = "BCZJInUUsDp5Sg3c3x58uC9MbXoSSo8bVjsjfLe97OQzh2H1LHfdpWpM40ep0T9jAsQ5_tr_cKQ-5SUcINZClrI";
