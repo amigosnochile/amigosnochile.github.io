@@ -113,9 +113,9 @@ async function sincronizarGoogle(user_id: string, fuso: string) {
     else console.error("google insert", j);
   }
 
-  // 2. Puxa de todas as agendas: de ontem até 30 dias pra frente
-  const timeMin = new Date(Date.now() - 86400_000).toISOString();
-  const timeMax = new Date(Date.now() + 30 * 86400_000).toISOString();
+  // 2. Puxa de todas as agendas: do começo do ano até 1 ano pra frente
+  const timeMin = new Date(`${local(fuso).iso.slice(0, 4)}-01-01T00:00:00-03:00`).toISOString();
+  const timeMax = new Date(Date.now() + 366 * 86400_000).toISOString();
   const vindos: Record<string, unknown>[] = [];
   const vistos = new Set<string>();
   let falhas = 0;
