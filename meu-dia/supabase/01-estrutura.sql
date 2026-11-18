@@ -53,6 +53,7 @@ create table if not exists eventos (
   local text,
   nota text,
   enviar_google boolean not null default true,
+  agenda text,
   lembrar boolean not null default true,
   atualizado_em timestamptz not null default now(),
   unique (user_id, google_id)
@@ -145,6 +146,7 @@ begin
   end loop;
 end $$;
 
+alter table eventos add column if not exists agenda text;
 create index if not exists eventos_inicio on eventos (user_id, inicio);
 create index if not exists passos_meta on passos (meta_id);
 create index if not exists checks_dia on habito_checks (user_id, dia);

@@ -67,67 +67,98 @@ async function tokenGoogle(user_id: string): Promise<string | null> {
   return j.access_token;
 }
 
-const GCAL = "https://www.googleapis.com/calendar/v3/calendars/primary/events";
+const GAPI = "https://www.googleapis.com/calendar/v3";
+const evUrl = (cal: string, id = "") =>
+  `${GAPI}/calendars/${encodeURIComponent(cal)}/events${id ? "/" + encodeURIComponent(id) : ""}`;
+// google_id guardado como "<agenda>::<evento>", porque o mesmo evento pode estar em várias agendas
+const separar = (gid: string) => {
+  const k = gid.indexOf("::");
+  return k < 0 ? { cal: "primary", id: gid } : { cal: gid.slice(0, k), id: gid.slice(k + 2) };
+};
 const soData = (ts: string, fuso: string) => local(fuso, new Date(ts)).iso;
 const addDia = (iso: string, n: number) => {
   const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10);
 };
 
+// Todas as agendas que ela vê no Google (próprias e compartilhadas), menos feriados/aniversários
+async function agendas(H: Record<string, string>) {
+  const r = await fetch(`${GAPI}/users/me/calendarList?maxResults=250`, { headers: H });
+  if (!r.ok) { console.error("calendarList", await r.text()); return [{ id: "primary", nome: null as string | null, principal: true }]; }
+  const j = await r.json();
+  return (j.items ?? [])
+    .filter((c: Record<string, unknown>) => !c.hidden && !c.deleted && !/#(holiday|contacts|weather)@/.test(String(c.id)))
+    .map((c: Record<string, unknown>) => ({ id: String(c.id), nome: (c.summaryOverride ?? c.summary ?? null) as string | null, principal: !!c.primary }));
+}
+
 async function sincronizarGoogle(user_id: string, fuso: string) {
   const token = await tokenGoogle(user_id);
   if (!token) return { google: false };
   const H = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const lista = await agendas(H);
+  const principal = lista.find((c) => c.principal)?.id ?? "primary";
 
-  // 1. Compromissos criados no app/Claude que ainda não estão no Google
+  // 1. Compromissos criados no app/Claude que ainda não estão no Google (vão para a agenda principal)
   const { data: pend } = await admin.from("eventos").select("*")
     .eq("user_id", user_id).is("google_id", null).eq("enviar_google", true);
   for (const e of pend ?? []) {
     const corpo = e.dia_inteiro
       ? { start: { date: soData(e.inicio, fuso) }, end: { date: addDia(soData(e.fim ?? e.inicio, fuso), e.fim ? 0 : 1) } }
       : { start: { dateTime: e.inicio, timeZone: fuso }, end: { dateTime: e.fim ?? new Date(new Date(e.inicio).getTime() + 3600_000).toISOString(), timeZone: fuso } };
-    const r = await fetch(GCAL, {
+    const r = await fetch(evUrl(principal), {
       method: "POST", headers: H,
       body: JSON.stringify({ summary: e.titulo, location: e.local ?? undefined, description: e.nota ?? undefined, ...corpo }),
     });
     const j = await r.json();
-    if (r.ok) await admin.from("eventos").update({ google_id: j.id, origem: "google" }).eq("id", e.id);
+    if (r.ok) await admin.from("eventos").update({ google_id: `${principal}::${j.id}`, origem: "google" }).eq("id", e.id);
     else console.error("google insert", j);
   }
 
-  // 2. Puxa do Google: de ontem até 30 dias pra frente
+  // 2. Puxa de todas as agendas: de ontem até 30 dias pra frente
   const timeMin = new Date(Date.now() - 86400_000).toISOString();
   const timeMax = new Date(Date.now() + 30 * 86400_000).toISOString();
   const vindos: Record<string, unknown>[] = [];
-  let pageToken = "";
-  do {
-    const q = new URLSearchParams({ timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "250" });
-    if (pageToken) q.set("pageToken", pageToken);
-    const r = await fetch(`${GCAL}?${q}`, { headers: H });
-    const j = await r.json();
-    if (!r.ok) { console.error("google list", j); return { google: false, erro: j.error?.message }; }
-    for (const g of j.items ?? []) {
-      const diaTodo = !!g.start?.date;
-      vindos.push({
-        user_id, google_id: g.id, origem: "google", titulo: g.summary || "(sem título)",
-        inicio: diaTodo ? `${g.start.date}T12:00:00Z` : g.start.dateTime,
-        fim: diaTodo ? `${g.end.date}T12:00:00Z` : g.end?.dateTime,
-        dia_inteiro: diaTodo, local: g.location ?? null, nota: g.description ?? null,
-        enviar_google: false, atualizado_em: new Date().toISOString(),
-      });
-    }
-    pageToken = j.nextPageToken ?? "";
-  } while (pageToken);
+  const vistos = new Set<string>();
+  let falhas = 0;
+  for (const cal of lista) {
+    let pageToken = "";
+    do {
+      const q = new URLSearchParams({ timeMin, timeMax, singleEvents: "true", orderBy: "startTime", maxResults: "250" });
+      if (pageToken) q.set("pageToken", pageToken);
+      const r = await fetch(`${evUrl(cal.id)}?${q}`, { headers: H });
+      const j = await r.json();
+      if (!r.ok) { console.error("google list", cal.id, j); falhas++; break; }
+      for (const g of j.items ?? []) {
+        const diaTodo = !!g.start?.date;
+        const ini = diaTodo ? g.start.date : g.start?.dateTime;
+        const chave = `${g.iCalUID ?? g.id}|${ini}`; // mesmo convite em duas agendas aparece uma vez só
+        if (!ini || vistos.has(chave)) continue;
+        vistos.add(chave);
+        vindos.push({
+          user_id, google_id: `${cal.id}::${g.id}`, origem: "google", titulo: g.summary || "(sem título)",
+          inicio: diaTodo ? `${g.start.date}T12:00:00Z` : g.start.dateTime,
+          fim: diaTodo ? `${g.end.date}T12:00:00Z` : g.end?.dateTime,
+          dia_inteiro: diaTodo, local: g.location ?? null, nota: g.description ?? null,
+          agenda: cal.principal ? null : cal.nome,
+          enviar_google: false, atualizado_em: new Date().toISOString(),
+        });
+      }
+      pageToken = j.nextPageToken ?? "";
+    } while (pageToken);
+  }
+  if (falhas === lista.length) return { google: false, erro: "Não consegui ler as agendas do Google." };
 
   if (vindos.length) await admin.from("eventos").upsert(vindos, { onConflict: "user_id,google_id" });
 
-  // 3. Some do app o que foi apagado no Google
-  const { data: atuais } = await admin.from("eventos").select("id,google_id")
-    .eq("user_id", user_id).eq("origem", "google").gte("inicio", timeMin).lt("inicio", timeMax);
-  const ids = new Set(vindos.map((v) => v.google_id));
-  const sumiram = (atuais ?? []).filter((a) => !ids.has(a.google_id)).map((a) => a.id);
-  if (sumiram.length) await admin.from("eventos").delete().in("id", sumiram);
+  // 3. Some do app o que foi apagado no Google (só se todas as agendas foram lidas)
+  if (!falhas) {
+    const { data: atuais } = await admin.from("eventos").select("id,google_id")
+      .eq("user_id", user_id).eq("origem", "google").gte("inicio", timeMin).lt("inicio", timeMax);
+    const ids = new Set(vindos.map((v) => v.google_id));
+    const sumiram = (atuais ?? []).filter((a) => !ids.has(a.google_id)).map((a) => a.id);
+    if (sumiram.length) await admin.from("eventos").delete().in("id", sumiram);
+  }
 
-  return { google: true, eventos: vindos.length };
+  return { google: true, eventos: vindos.length, agendas: lista.length };
 }
 
 // ---------- Notificações ----------
@@ -322,7 +353,8 @@ Deno.serve(async (req) => {
         if (!e) return json({ ok: true });
         if (e.google_id) {
           const token = await tokenGoogle(uid);
-          if (token) await fetch(`${GCAL}/${encodeURIComponent(e.google_id)}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          const { cal, id } = separar(e.google_id);
+          if (token) await fetch(evUrl(cal, id), { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
         }
         await admin.from("eventos").delete().eq("id", e.id);
         return json({ ok: true });
