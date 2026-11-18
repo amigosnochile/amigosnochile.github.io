@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#3E3478">
+<meta name="theme-color" content="#EFEBE3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#23221F" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Meu Dia">
 <title>Meu Dia</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -19,33 +20,33 @@
 <style>
 /* Layout: cabeçalho roxo com data e "Agora", uma coluna (máx 640px), barra de abas embaixo, botão + flutuante */
 :root{
-  --bg:#F3F1F8; --surface:#FFFFFF; --sunken:#F7F6FB; --ink:#1E1B2E; --muted:#635E78; --line:#DEDAEA;
-  --accent:#5B4BC4; --accent-ink:#FFFFFF; --accent-soft:#E9E5FA;
-  --hero:#3E3478; --hero-ink:#F6F4FF; --hero-muted:#C3BCEB;
-  --c1:#5B4BC4; --c1-soft:#E9E5FA; --c2:#0E7C74; --c2-soft:#D8F0EC; --c3:#B4531F; --c3-soft:#F8E6DA; --c4:#A3306A; --c4-soft:#F6DFEA; --c5:#4C6B1C; --c5-soft:#E5EFD6;
-  --ok:#22744B; --ok-soft:#DDF0E4; --bad:#B02A1E; --bad-soft:#FAE3E0;
-  --scrim:rgba(20,16,40,.5);
+  --bg:#F7F5F0; --surface:#FFFFFF; --sunken:#F1EEE7; --ink:#2B2925; --muted:#6F6A62; --line:#E5E0D6;
+  --accent:#2B2925; --accent-ink:#F7F5F0; --accent-soft:#ECE8DF;
+  --hero:#EFEBE3; --hero-ink:#2B2925; --hero-muted:#6F6A62; --hero-card:#FFFFFF; --hero-track:#E5E0D6; --hero-btn:#E6E1D7;
+  --c1:#7A746A; --c1-soft:#EEEBE5; --c2:#6E8270; --c2-soft:#E5ECE4; --c3:#B0785A; --c3-soft:#F4E9E1; --c4:#8E7A8C; --c4-soft:#EFE8EE; --c5:#66788A; --c5-soft:#E3E9EE;
+  --ok:#5E7F62; --ok-soft:#E4ECE3; --bad:#A4473A; --bad-soft:#F6E3DF;
+  --scrim:rgba(30,28,24,.4); --shadow:rgba(40,36,30,.18);
   --f-display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;
   --f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif;
   --r:14px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --bg:#12101C; --surface:#1C1929; --sunken:#171522; --ink:#ECE9F7; --muted:#A39DBB; --line:#2E2A40;
-    --accent:#A193F5; --accent-ink:#17122E; --accent-soft:#2C2650;
-    --hero:#231D45; --hero-ink:#F1EEFF; --hero-muted:#A89FD8;
-    --c1:#A193F5; --c1-soft:#2C2650; --c2:#4FC7BB; --c2-soft:#12322F; --c3:#F0955E; --c3-soft:#3A2416; --c4:#EB7FB3; --c4-soft:#3A1A2B; --c5:#A6CF63; --c5-soft:#26331A;
-    --ok:#62C88F; --ok-soft:#163224; --bad:#F07A6E; --bad-soft:#3C1A17;
-    --scrim:rgba(0,0,0,.6); color-scheme:dark;
+    --bg:#1A1917; --surface:#23221F; --sunken:#1E1D1B; --ink:#EDE9E2; --muted:#A39D93; --line:#34322E;
+    --accent:#EDE9E2; --accent-ink:#1A1917; --accent-soft:#2E2C28;
+    --hero:#23221F; --hero-ink:#EDE9E2; --hero-muted:#A39D93; --hero-card:#2B2926; --hero-track:#3A3833; --hero-btn:#2E2C28;
+    --c1:#B3ACA0; --c1-soft:#2E2C28; --c2:#9DB39F; --c2-soft:#263027; --c3:#D3A386; --c3-soft:#382A22; --c4:#BFA9BC; --c4-soft:#332A32; --c5:#9EB0C2; --c5-soft:#262D34;
+    --ok:#94B897; --ok-soft:#24302A; --bad:#E08E80; --bad-soft:#3A2320;
+    --scrim:rgba(0,0,0,.55); --shadow:rgba(0,0,0,.4); color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#12101C; --surface:#1C1929; --sunken:#171522; --ink:#ECE9F7; --muted:#A39DBB; --line:#2E2A40;
-  --accent:#A193F5; --accent-ink:#17122E; --accent-soft:#2C2650;
-  --hero:#231D45; --hero-ink:#F1EEFF; --hero-muted:#A89FD8;
-  --c1:#A193F5; --c1-soft:#2C2650; --c2:#4FC7BB; --c2-soft:#12322F; --c3:#F0955E; --c3-soft:#3A2416; --c4:#EB7FB3; --c4-soft:#3A1A2B; --c5:#A6CF63; --c5-soft:#26331A;
-  --ok:#62C88F; --ok-soft:#163224; --bad:#F07A6E; --bad-soft:#3C1A17;
-  --scrim:rgba(0,0,0,.6); color-scheme:dark;
+  --bg:#1A1917; --surface:#23221F; --sunken:#1E1D1B; --ink:#EDE9E2; --muted:#A39D93; --line:#34322E;
+  --accent:#EDE9E2; --accent-ink:#1A1917; --accent-soft:#2E2C28;
+  --hero:#23221F; --hero-ink:#EDE9E2; --hero-muted:#A39D93; --hero-card:#2B2926; --hero-track:#3A3833; --hero-btn:#2E2C28;
+  --c1:#B3ACA0; --c1-soft:#2E2C28; --c2:#9DB39F; --c2-soft:#263027; --c3:#D3A386; --c3-soft:#382A22; --c4:#BFA9BC; --c4-soft:#332A32; --c5:#9EB0C2; --c5-soft:#262D34;
+  --ok:#94B897; --ok-soft:#24302A; --bad:#E08E80; --bad-soft:#3A2320;
+  --scrim:rgba(0,0,0,.55); --shadow:rgba(0,0,0,.4); color-scheme:dark;
 }
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -72,13 +73,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 .hero-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .hero .data{color:var(--hero-muted);font-size:.9rem}
 .hero h1{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-top:2px}
-.iconbtn{width:44px;height:44px;border-radius:12px;border:0;background:rgba(255,255,255,.1);color:var(--hero-ink);display:grid;place-items:center}
+.iconbtn{width:44px;height:44px;border-radius:12px;border:0;background:var(--hero-btn);color:var(--hero-ink);display:grid;place-items:center}
 .iconbtn svg{width:22px;height:22px}
-.agora{margin-top:16px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:14px 16px}
+.agora{margin-top:16px;background:var(--hero-card);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
 .agora .rot{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--hero-muted)}
 .agora .tit{font-family:var(--f-display);font-size:1.35rem;font-weight:600;margin-top:2px}
 .agora .sub{color:var(--hero-muted);font-size:.9rem;margin-top:2px}
-.barra{height:6px;border-radius:3px;background:rgba(255,255,255,.18);margin-top:10px;overflow:hidden}
+.barra{height:6px;border-radius:3px;background:var(--hero-track);margin-top:10px;overflow:hidden}
 .barra i{display:block;height:100%;background:var(--hero-ink);border-radius:3px}
 .depois{margin-top:10px;font-size:.9rem;color:var(--hero-muted)}
 .depois b{color:var(--hero-ink);font-weight:600}
@@ -109,7 +110,7 @@ main{padding:18px 0 calc(110px + env(safe-area-inset-bottom))}
 .chip.on{background:var(--ok-soft);border-color:var(--ok);color:var(--ok)}
 .hab-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
 .chk{width:44px;height:44px;border-radius:12px;border:2px solid var(--line);background:var(--surface);display:grid;place-items:center;font-size:1.3rem;flex:none}
-.chk.on{background:var(--ok);border-color:var(--ok);color:#fff}
+.chk.on{background:var(--ok);border-color:var(--ok);color:var(--surface)}
 .dots{display:flex;gap:4px;margin-top:4px}
 .dots i{width:10px;height:10px;border-radius:50%;background:var(--line)}
 .dots i.on{background:var(--ok)}
@@ -149,8 +150,8 @@ nav.tabs .wrap{display:grid;grid-template-columns:repeat(5,1fr)}
 .tab{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 6px;min-height:56px;font-size:.72rem;font-weight:600;color:var(--muted);position:relative}
 .tab svg{width:24px;height:24px}
 .tab[aria-current="page"]{color:var(--accent)}
-.tab .badge{position:absolute;top:4px;left:calc(50% + 6px);background:var(--c3);color:#fff;border-radius:999px;font-size:.68rem;min-width:18px;height:18px;line-height:18px;padding:0 5px}
-.fab{position:fixed;right:max(16px, calc(50% - 304px));bottom:calc(72px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 20px rgba(40,30,100,.35);display:grid;place-items:center;z-index:21}
+.tab .badge{position:absolute;top:4px;left:calc(50% + 6px);background:var(--c3);color:var(--surface);border-radius:999px;font-size:.68rem;min-width:18px;height:18px;line-height:18px;padding:0 5px}
+.fab{position:fixed;right:max(16px, calc(50% - 304px));bottom:calc(72px + env(safe-area-inset-bottom));width:58px;height:58px;border-radius:18px;border:0;background:var(--accent);color:var(--accent-ink);box-shadow:0 6px 18px var(--shadow);display:grid;place-items:center;z-index:21}
 .fab svg{width:28px;height:28px}
 
 /* Folha (modal) */
@@ -178,7 +179,7 @@ nav.tabs .wrap{display:grid;grid-template-columns:repeat(5,1fr)}
 
 /* Login */
 .login{min-height:100vh;display:grid;place-items:center;padding:24px 16px;background:var(--hero)}
-.login .card{width:100%;max-width:380px}
+.login .card{width:100%;max-width:380px;border:1px solid var(--line)}
 .login h1{font-size:1.8rem;font-weight:800;margin-bottom:4px}
 .aviso{background:var(--c3-soft);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:.92rem}
 </style>
