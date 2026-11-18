@@ -95,6 +95,7 @@ create table if not exists habitos (
   nome text not null,
   emoji text,
   horario time,
+  levar boolean not null default false,
   ativo boolean not null default true,
   ordem int not null default 0,
   criado_em timestamptz not null default now()
@@ -147,6 +148,7 @@ begin
 end $$;
 
 alter table eventos add column if not exists agenda text;
+alter table habitos add column if not exists levar boolean not null default false;
 create index if not exists eventos_inicio on eventos (user_id, inicio);
 create index if not exists passos_meta on passos (meta_id);
 create index if not exists checks_dia on habito_checks (user_id, dia);

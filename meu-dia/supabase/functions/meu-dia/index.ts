@@ -189,7 +189,8 @@ async function primeiraVez(chave: string) {
 
 // Tudo o que acontece num dia, já em minutos do dia local
 async function diaDe(p: Perfil, iso: string, dow: number) {
-  const [{ data: blocos }, { data: eventos }, { data: habitos }, { data: checks }, { data: metas }, { data: passos }, { count: caixa }] =
+  const ontem = addDia(iso, -1);
+  const [{ data: blocos }, { data: eventos }, { data: habitos }, { data: checks }, { data: metas }, { data: passos }, { count: caixa }, { data: checksOntem }] =
     await Promise.all([
       admin.from("blocos").select("*").eq("user_id", p.user_id),
       admin.from("eventos").select("*").eq("user_id", p.user_id)
@@ -200,6 +201,7 @@ async function diaDe(p: Perfil, iso: string, dow: number) {
       admin.from("metas").select("*").eq("user_id", p.user_id).eq("concluida", false).order("ordem"),
       admin.from("passos").select("*").eq("user_id", p.user_id).eq("feito", false).order("ordem"),
       admin.from("inbox").select("id", { count: "exact", head: true }).eq("user_id", p.user_id),
+      admin.from("habito_checks").select("habito_id").eq("user_id", p.user_id).eq("dia", ontem),
     ]);
   const bl = (blocos ?? []).filter((b) =>
     b.data ? b.data === iso : !b.dias || b.dias.length === 0 || b.dias.includes(dow)
@@ -214,7 +216,9 @@ async function diaDe(p: Perfil, iso: string, dow: number) {
   const proximos = (metas ?? []).slice(0, 3).map((m) => ({
     meta: m.titulo, passo: (passos ?? []).find((s) => s.meta_id === m.id)?.titulo,
   }));
-  return { bl, ev, habitos: habitos ?? [], feitos, proximos, caixa: caixa ?? 0 };
+  const feitosOntem = new Set((checksOntem ?? []).map((c) => c.habito_id));
+  const pendentes = (habitos ?? []).filter((h) => h.levar && !feitosOntem.has(h.id) && local(p.fuso, new Date(h.criado_em)).iso <= ontem);
+  return { bl, ev, habitos: habitos ?? [], feitos, proximos, caixa: caixa ?? 0, pendentes };
 }
 
 function resumoTexto(p: Perfil, d: Awaited<ReturnType<typeof diaDe>>) {
@@ -223,7 +227,8 @@ function resumoTexto(p: Perfil, d: Awaited<ReturnType<typeof diaDe>>) {
   if (d.bl.length) partes.push(`${d.bl.length} bloco${d.bl.length > 1 ? "s" : ""}`);
   const primeiro = [...d.ev.filter((e) => e.ini >= 0), ...d.bl].sort((a, b) => a.ini - b.ini)[0];
   return (partes.length ? `Hoje: ${partes.join(" e ")}.` : "Dia livre hoje.") +
-    (primeiro ? ` Primeiro: ${primeiro.titulo} às ${fmt(primeiro.ini)}.` : "");
+    (primeiro ? ` Primeiro: ${primeiro.titulo} às ${fmt(primeiro.ini)}.` : "") +
+    (d.pendentes.length ? ` Pendente de ontem: ${d.pendentes.map((h) => h.nome).join(", ")}.` : "");
 }
 
 function resumoHtml(p: Perfil, d: Awaited<ReturnType<typeof diaDe>>, dataBonita: string) {
@@ -239,6 +244,7 @@ function resumoHtml(p: Perfil, d: Awaited<ReturnType<typeof diaDe>>, dataBonita:
 <p style="font-size:18px;margin:0 0 4px">Bom dia${p.nome ? `, ${esc(p.nome)}` : ""} ☀️</p>
 <p style="color:#666;margin:0">${dataBonita}</p>
 ${sec("Agenda de hoje", agenda) || "<p>Nada marcado hoje. Dia livre!</p>"}
+${sec("Ficou pendente", d.pendentes.map((h) => li(`↺ ${esc(h.nome)}`)))}
 ${sec("Hábitos", d.habitos.map((h) => li(`${h.emoji ?? "•"} ${esc(h.nome)}${h.horario ? ` <span style="color:#777">às ${fmt(hm(h.horario))}</span>` : ""}`)))}
 ${sec("Um passo de cada vez", d.proximos.filter((x) => x.passo).map((x) => li(`${esc(x.passo!)} <span style="color:#777">(${esc(x.meta)})</span>`)))}
 ${d.caixa ? `<p style="margin-top:18px">📥 ${d.caixa} ${d.caixa > 1 ? "coisas" : "coisa"} na caixa de entrada esperando um lugar.</p>` : ""}
