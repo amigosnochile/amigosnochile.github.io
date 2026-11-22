@@ -18,6 +18,7 @@ Tabelas (o dono, `user_id`, é preenchido sozinho, não precisa informar):
 - `passos`: passos de cada meta. meta_id, titulo, feito, feito_em, ordem.
 - `inbox`: caixa de entrada. texto, criado_em.
 - `tarefas`: checklist do dia. texto, dia (date), feito, feito_em, ordem. O que não foi feito continua aparecendo nos dias seguintes até ser marcado. Para "monta minha lista de amanhã", insira uma linha por item com dia = amanhã, na ordem.
+- `livros`: titulo, autor, paginas, pagina_atual, status ('lendo','quero','lido'), favorito, nota (1-5), iniciado_em, terminado_em. `leitura_dias`: dia, paginas (dias em que leu e quantas páginas avançou). `perfil.meta_livros`: meta de livros no ano.
 - `rotinas`: listas prontas. nome, itens (text[]), ex.: Manhã = acordar, lavar rosto, lente de contato...
 - `habitos`: nome, emoji, horario, ativo, levar (true = se não fizer, fica pendente no dia seguinte até marcar; marcar a pendência = inserir check com o dia de ontem). `habito_checks`: habito_id, dia (date) = feito naquele dia.
 - `perfil`: meu nome, e-mail e horário do resumo.
