@@ -49,7 +49,7 @@
   --scrim:rgba(0,0,0,.55); --shadow:rgba(0,0,0,.4); color-scheme:dark;
 }
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;accent-color:var(--accent)}
 [hidden]{display:none !important}
 body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.5;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 .wrap{max-width:640px;margin-inline:auto;padding-inline:16px}
@@ -115,6 +115,22 @@ main{padding:18px 0 calc(110px + env(safe-area-inset-bottom))}
 .chip.sel{background:var(--accent);color:var(--accent-ink);border-color:transparent}
 .chip input[type=date]{border:0;padding:0;min-height:0;width:auto;background:transparent;color:inherit;font-weight:600}
 details>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
+.seg3{grid-template-columns:repeat(3,1fr)}
+.stats{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px}
+.stat{display:grid;gap:2px;text-align:left;align-content:start;padding:12px}
+.stat b{font-family:var(--f-display);font-size:1.4rem;font-weight:600;line-height:1.1}
+.stat span{font-size:.8rem;color:var(--muted);line-height:1.2}
+.stat.destaque{background:var(--c4-soft);border-color:transparent}
+.stat .prog{margin:6px 0 0}
+.rot-mini{font-size:.72rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.livro-tit{font-size:1.35rem;margin:2px 0}
+.livro-lendo .prog{height:10px}
+.tracker{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.tracker .dia{aspect-ratio:1;min-height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);font-size:.8rem;font-weight:600;color:var(--muted);padding:0}
+.tracker .dia.on{background:var(--c4);border-color:var(--c4);color:var(--surface)}
+.tracker .dia.hoje{outline:2px solid var(--ink);outline-offset:1px}
+.tracker .dia:disabled{opacity:.35}
+.livro-linha{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left}
 .atraso{color:var(--c3);font-weight:600;font-size:.8rem}
 .pend-tit{font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--c3);margin-bottom:6px}
 .hab-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
@@ -260,7 +276,7 @@ nav.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr)}
 <script>
 const C = window.MEUDIA_CONFIG || {};
 const sb = supabase.createClient(C.supabaseUrl, C.supabaseKey);
-const S = { view: 'hoje', blocos: [], eventos: [], metas: [], passos: [], inbox: [], habitos: [], checks: [], tarefas: [], rotinas: [], diaTarefas: null, perfil: null, user: null, googleOk: null, abertas: new Set() };
+const S = { view: 'hoje', blocos: [], eventos: [], metas: [], passos: [], inbox: [], habitos: [], checks: [], tarefas: [], rotinas: [], diaTarefas: null, livros: [], leituraDias: [], subMetas: 'habitos', filtroLivros: 'lendo', perfil: null, user: null, googleOk: null, abertas: new Set() };
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
@@ -312,12 +328,14 @@ async function carregar() {
     sb.from('perfil').select('*').maybeSingle(),
     sb.from('tarefas').select('*').or(`feito.eq.false,dia.gte.${maisDias(hojeISO(), -7)}`).order('dia').order('ordem').order('criado_em'),
     sb.from('rotinas').select('*').order('ordem').order('criado_em'),
+    sb.from('livros').select('*').order('criado_em', { ascending: false }),
+    sb.from('leitura_dias').select('*').gte('dia', maisDias(hojeISO(), -62)),
   ]);
   const erro = r.find(x => x.error);
   if (erro) { toast('Erro ao carregar: ' + erro.error.message); return; }
   [S.blocos, S.eventos, S.metas, S.passos, S.inbox, S.habitos, S.checks] = r.slice(0, 7).map(x => x.data || []);
   S.perfil = r[7].data;
-  S.tarefas = r[8].data || []; S.rotinas = r[9].data || [];
+  S.tarefas = r[8].data || []; S.rotinas = r[9].data || []; S.livros = r[10].data || []; S.leituraDias = r[11].data || [];
   if (!S.perfil) {
     const { data } = await sb.from('perfil').insert({ user_id: S.user.id, email_resumo: S.user.email }).select().single();
     S.perfil = data;
@@ -346,7 +364,7 @@ function render() {
   const n = S.inbox.length, bd = $('#badge-caixa');
   bd.hidden = !n; bd.textContent = n;
   renderHero();
-  const v = { hoje: vHoje, agenda: vAgenda, makes: vMakes, tarefas: vTarefas, metas: vMetas, habitos: vMetas, caixa: vCaixa, config: vConfig }[S.view];
+  const v = { hoje: vHoje, agenda: vAgenda, makes: vMakes, tarefas: vTarefas, metas: vMetas, habitos: () => { S.subMetas = 'habitos'; return vMetas(); }, caixa: vCaixa, config: vConfig }[S.view];
   $('#main').innerHTML = v();
 }
 
@@ -537,6 +555,111 @@ function formRotina(r = {}) {
 }
 
 function vMetas() {
+  const sub = S.subMetas || 'habitos';
+  const op = [['habitos', 'Hábitos'], ['leitura', 'Leitura'], ['metas', 'Metas']];
+  return `<div class="seg seg3" role="tablist" aria-label="Seções" style="margin-bottom:18px">${op.map(([k, t]) => `<button class="chip ${sub === k ? 'sel' : ''}" role="tab" aria-selected="${sub === k}" data-acao="sub-metas" data-s="${k}">${t}</button>`).join('')}</div>`
+    + (sub === 'habitos' ? vHabitos() : sub === 'leitura' ? vLeitura() : vMetasLista());
+}
+
+// ---------- leitura ----------
+const pct = l => l.paginas ? Math.min(100, Math.round(100 * (l.pagina_atual || 0) / l.paginas)) : 0;
+function ritmo() {
+  const desde = maisDias(hojeISO(), -13);
+  const dias = S.leituraDias.filter(d => d.dia >= desde && d.paginas > 0);
+  if (!dias.length) return 0;
+  return Math.round(dias.reduce((a, d) => a + d.paginas, 0) / 14);
+}
+function vLeitura() {
+  const ano = String(new Date().getFullYear()), meta = S.perfil?.meta_livros || 12;
+  const lidosAno = S.livros.filter(l => l.status === 'lido' && (l.terminado_em || '').startsWith(ano)).length;
+  const lendo = S.livros.filter(l => l.status === 'lendo'), quero = S.livros.filter(l => l.status === 'quero');
+  const rit = ritmo();
+  const cardLendo = l => {
+    const falta = l.paginas ? Math.max(0, l.paginas - (l.pagina_atual || 0)) : null;
+    const dias = falta && rit ? Math.ceil(falta / rit) : null;
+    return `<div class="card livro-lendo">
+      <p class="rot-mini">Lendo agora</p>
+      <h3 class="livro-tit clic" data-acao="editar-livro" data-id="${l.id}">${esc(l.titulo)}</h3>
+      ${l.autor ? `<p class="muted small">${esc(l.autor)}</p>` : ''}
+      ${l.paginas ? `<div class="prog" role="progressbar" aria-valuenow="${pct(l)}" aria-valuemin="0" aria-valuemax="100" aria-label="Progresso do livro"><i style="width:${pct(l)}%"></i></div>
+        <p class="small"><b>Página ${l.pagina_atual || 0} de ${l.paginas}</b> · ${pct(l)}%</p>
+        <p class="muted small">Faltam ${falta} páginas${dias ? ` · no seu ritmo (~${rit} pág/dia), termina em ${dias === 1 ? '1 dia' : dias + ' dias'}` : ''}</p>`
+      : `<button class="btn ghost" style="padding:0" data-acao="editar-livro" data-id="${l.id}">Quantas páginas tem? Toque pra colocar</button>`}
+      <form class="quick" style="margin-top:10px" data-form="pagina" data-id="${l.id}">
+        <input name="t" type="number" inputmode="numeric" min="0" ${l.paginas ? `max="${l.paginas}"` : ''} placeholder="Página em que parei" aria-label="Página em que parei" required>
+        <button class="btn">Atualizar</button>
+      </form>
+      <button class="btn ghost" style="padding:0;margin-top:6px" data-acao="terminei" data-id="${l.id}">✓ Terminei este livro</button>
+    </div>`;
+  };
+  // tracker do mês
+  const hoje = hojeISO(), d0 = new Date(), mes = d0.getMonth(), anoN = d0.getFullYear();
+  const nDias = new Date(anoN, mes + 1, 0).getDate();
+  const lidos = new Set(S.leituraDias.map(d => d.dia));
+  const diasMes = [...Array(nDias)].map((_, i) => isoDe(new Date(anoN, mes, i + 1)));
+  const ateHoje = diasMes.filter(d => d <= hoje);
+  const nomeMes = d0.toLocaleDateString('pt-BR', { month: 'long' });
+  const tracker = `<div class="card"><div class="sec-h" style="margin-bottom:8px"><p class="rot-mini" style="margin:0">Tracker de ${nomeMes}</p><span class="muted small">${ateHoje.filter(d => lidos.has(d)).length} de ${ateHoje.length} dias</span></div>
+    <div class="tracker">${diasMes.map((d, i) => `<button class="dia ${lidos.has(d) ? 'on' : ''} ${d === hoje ? 'hoje' : ''}" ${d > hoje ? 'disabled' : ''} data-acao="dia-leitura" data-d="${d}" aria-pressed="${lidos.has(d)}" aria-label="Dia ${i + 1}${lidos.has(d) ? ', leu' : ''}">${i + 1}</button>`).join('')}</div>
+    <p class="muted small" style="margin-top:8px">Toque no dia em que leu. Atualizar a página marca hoje sozinho.</p></div>`;
+  // acervo
+  const f = S.filtroLivros || 'lendo';
+  const filtros = [['lendo', 'Lendo'], ['quero', 'Quero ler'], ['lido', 'Lidos'], ['fav', 'Favoritos'], ['todos', 'Todos']];
+  const lista = S.livros.filter(l => f === 'todos' || (f === 'fav' ? l.favorito : l.status === f));
+  const tag = { lendo: 'lendo', quero: 'quero ler', lido: 'lido' };
+  return `<div class="stats">
+      <button class="card stat destaque clic" data-acao="meta-livros"><b>${lidosAno} de ${meta}</b><span>lidos em ${ano}</span><span class="prog"><i style="width:${Math.min(100, Math.round(100 * lidosAno / meta))}%"></i></span></button>
+      <div class="card stat"><b>${lendo.length}</b><span>lendo agora</span></div>
+      <div class="card stat"><b>${quero.length}</b><span>quero ler</span></div>
+    </div>
+    ${lendo.length ? `<div class="lista" style="margin-top:12px">${lendo.map(cardLendo).join('')}</div>` : `<p class="vazio" style="margin-top:12px">Nenhum livro em leitura. Adicione um abaixo.</p>`}
+    <section class="sec">${tracker}</section>
+    <section class="sec"><div class="sec-h"><h2>Acervo</h2><button class="btn pri" data-acao="novo-livro">+ Livro</button></div>
+      <div class="habs" style="margin-bottom:10px">${filtros.map(([k, t]) => `<button class="chip ${f === k ? 'sel' : ''}" data-acao="filtro-livros" data-f="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>
+      ${lista.length ? `<div class="lista">${lista.map(l => `<button class="card clic livro-linha" data-acao="editar-livro" data-id="${l.id}">
+          <span><b>${esc(l.titulo)}</b>${l.favorito ? ' ♥' : ''}<span class="muted small" style="display:block">${l.autor ? esc(l.autor) + ' · ' : ''}${l.status === 'lido' ? (l.nota ? '★'.repeat(l.nota) : 'lido') : l.paginas ? `${l.paginas} páginas` : ''}${l.status === 'lendo' && l.paginas ? ` · ${pct(l)}%` : ''}</span></span>
+          <span class="tag">${tag[l.status]}</span></button>`).join('')}</div>`
+        : '<p class="vazio">Nada aqui ainda.</p>'}
+    </section>`;
+}
+async function marcarLeitura(dia, paginas = 0) {
+  const ja = S.leituraDias.find(d => d.dia === dia);
+  const total = (ja?.paginas || 0) + paginas;
+  if (ja) ja.paginas = total; else S.leituraDias.push({ dia, paginas: total });
+  await db(sb.from('leitura_dias').upsert({ user_id: S.user.id, dia, paginas: total }, { onConflict: 'user_id,dia' }));
+}
+async function terminarLivro(l) {
+  const row = { status: 'lido', terminado_em: hojeISO(), pagina_atual: l.paginas || l.pagina_atual };
+  Object.assign(l, row); render();
+  await db(sb.from('livros').update(row).eq('id', l.id), 'Mais um livro lido! 🎉');
+}
+function formLivro(l = {}) {
+  const novo = !l.id;
+  abrirFolha({
+    titulo: novo ? 'Novo livro' : 'Livro',
+    campos: [
+      { nome: 'titulo', rotulo: 'Título', valor: l.titulo, obrig: true },
+      { nome: 'autor', rotulo: 'Autor(a)', valor: l.autor },
+      { html: '<div class="duo">' },
+      { nome: 'paginas', rotulo: 'Total de páginas', tipo: 'number', valor: l.paginas ?? '' },
+      { nome: 'pagina_atual', rotulo: 'Página atual', tipo: 'number', valor: l.pagina_atual ?? 0 },
+      { html: '</div>' },
+      { nome: 'status', rotulo: 'Situação', tipo: 'select', valor: l.status || 'quero', opcoes: [{ v: 'lendo', t: 'Lendo agora' }, { v: 'quero', t: 'Quero ler' }, { v: 'lido', t: 'Já li' }] },
+      { nome: 'nota', rotulo: 'Nota (se já leu)', tipo: 'select', valor: String(l.nota || ''), se: ['status', 'lido'], opcoes: [{ v: '', t: 'Sem nota' }, ...[5, 4, 3, 2, 1].map(n => ({ v: String(n), t: '★'.repeat(n) }))] },
+      { nome: 'favorito', rotulo: 'Favorito ♥', tipo: 'check', valor: l.favorito },
+    ],
+    salvar: async v => {
+      const row = { titulo: v.titulo, autor: v.autor || null, paginas: v.paginas ? Number(v.paginas) : null, pagina_atual: Number(v.pagina_atual || 0), status: v.status, favorito: v.favorito, nota: v.status === 'lido' && v.nota ? Number(v.nota) : null };
+      if (v.status === 'lendo' && !l.iniciado_em) row.iniciado_em = hojeISO();
+      if (v.status === 'lido' && !l.terminado_em) { row.terminado_em = hojeISO(); if (row.paginas) row.pagina_atual = row.paginas; }
+      if (v.status !== 'lido') row.terminado_em = null;
+      await db(novo ? sb.from('livros').insert(row) : sb.from('livros').update(row).eq('id', l.id), 'Livro salvo');
+    },
+    apagar: novo ? null : () => db(sb.from('livros').delete().eq('id', l.id), 'Livro apagado'),
+  });
+}
+
+function vMetasLista() {
   const ativas = S.metas.filter(m => !m.concluida), feitas = S.metas.filter(m => m.concluida);
   const card = m => {
     const ps = S.passos.filter(p => p.meta_id === m.id), f = ps.filter(p => p.feito).length;
@@ -556,7 +679,7 @@ function vMetas() {
         <form class="quick" style="margin-top:8px" data-form="passo" data-meta="${m.id}"><input name="t" placeholder="Próximo passo pequeno…" aria-label="Novo passo" required><button class="btn">Pôr</button></form>` : ''}
     </div>`;
   };
-  return `${vHabitos()}<section class="sec" style="margin-top:32px"><div class="sec-h"><h2>Metas</h2><button class="btn pri" data-acao="nova-meta">+ Meta</button></div>
+  return `<section class="sec"><div class="sec-h"><h2>Metas</h2><button class="btn pri" data-acao="nova-meta">+ Meta</button></div>
     ${ativas.length ? `<div class="lista">${ativas.map(card).join('')}</div>` : '<p class="vazio">Escreva uma meta e quebre em passos bem pequenos (de 5 a 25 minutos cada). O próximo passo aparece na tela Hoje.</p>'}
     ${feitas.length ? `<section class="sec"><div class="sec-h"><h2>Concluídas 🎉</h2></div><div class="lista">${feitas.map(card).join('')}</div></section>` : ''}</section>`;
 }
@@ -658,8 +781,8 @@ function abrirFolha({ titulo, campos, salvar, apagar, textoSalvar = 'Salvar' }) 
     if (c.tipo === 'dias') return `<div class="campo" data-campo="${c.nome}"><span style="font-weight:600;font-size:.9rem">${c.rotulo}</span><div class="dias">${DIAS.map((d, i) => `<label><input type="checkbox" name="${c.nome}" value="${i}" ${(v || []).includes(i) ? 'checked' : ''}><span>${d}</span></label>`).join('')}</div>${c.dica ? `<span class="dica">${c.dica}</span>` : ''}</div>`;
     if (c.tipo === 'cor') return `<div class="campo"><span style="font-weight:600;font-size:.9rem">${c.rotulo}</span><div class="dias cores">${CORES.map(k => `<label class="cor-${k}"><input type="radio" name="${c.nome}" value="${k}" ${v === k ? 'checked' : ''} aria-label="Cor ${k}"><span></span></label>`).join('')}</div></div>`;
     if (c.tipo === 'check') return `<label class="check-linha"><input type="checkbox" name="${c.nome}" ${v ? 'checked' : ''}> ${c.rotulo}</label>`;
-    if (c.tipo === 'select') return `<div class="campo"><label for="${id}">${c.rotulo}</label><select id="${id}" name="${c.nome}">${c.opcoes.map(o => `<option value="${esc(o.v)}" ${o.v === v ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}</select></div>`;
-    if (c.tipo === 'area') return `<div class="campo"><label for="${id}">${c.rotulo}</label><textarea id="${id}" name="${c.nome}">${esc(v)}</textarea></div>`;
+    if (c.tipo === 'select') return `<div class="campo" data-campo="${c.nome}"><label for="${id}">${c.rotulo}</label><select id="${id}" name="${c.nome}">${c.opcoes.map(o => `<option value="${esc(o.v)}" ${o.v === v ? 'selected' : ''}>${esc(o.t)}</option>`).join('')}</select></div>`;
+    if (c.tipo === 'area') return `<div class="campo" data-campo="${c.nome}"><label for="${id}">${c.rotulo}</label><textarea id="${id}" name="${c.nome}">${esc(v)}</textarea></div>`;
     return `<div class="campo" data-campo="${c.nome}"><label for="${id}">${c.rotulo}</label><input id="${id}" name="${c.nome}" type="${c.tipo || 'text'}" value="${esc(v)}" ${c.obrig ? 'required' : ''} ${c.ph ? `placeholder="${esc(c.ph)}"` : ''}>${c.dica ? `<span class="dica">${c.dica}</span>` : ''}</div>`;
   };
   el.innerHTML = `<form class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-t"><h2 id="sheet-t">${titulo}</h2>
@@ -864,6 +987,8 @@ function textoParaClaude() {
   if (ms.length) L.push(`\nMETAS:\n${ms.map(m => { const ps = S.passos.filter(p => p.meta_id === m.id); return `- ${m.titulo}${m.prazo ? ` (até ${m.prazo})` : ''}: ${ps.filter(p => p.feito).length}/${ps.length} passos. Próximos: ${ps.filter(p => !p.feito).slice(0, 3).map(p => p.titulo).join('; ') || 'nenhum'}`; }).join('\n')}`);
   const tf = [...atrasadas(), ...tarefasDoDia(hoje).filter(t => !t.feito)];
   if (tf.length) L.push(`\nTAREFAS DE HOJE (não feitas):\n${tf.map(t => `- ${t.texto}${t.dia < hoje ? ' (' + rotAtraso(t.dia) + ')' : ''}`).join('\n')}`);
+  const lendoL = S.livros.filter(l => l.status === 'lendo');
+  if (lendoL.length) L.push(`\nLENDO:\n${lendoL.map(l => `- ${l.titulo}${l.paginas ? `: página ${l.pagina_atual} de ${l.paginas}` : ''}`).join('\n')}`);
   if (S.inbox.length) L.push(`\nCAIXA DE ENTRADA:\n${S.inbox.map(i => `- ${i.texto}`).join('\n')}`);
   L.push('\nTenho TDAH. Me ajude a decidir o que fazer agora, em passos pequenos.');
   return L.join('\n');
@@ -942,6 +1067,21 @@ document.addEventListener('click', async e => {
         break;
       }
       case 'nova-rotina': formRotina(); break;
+      case 'sub-metas': S.subMetas = t.dataset.s; render(); break;
+      case 'filtro-livros': S.filtroLivros = t.dataset.f; render(); break;
+      case 'novo-livro': formLivro(); break;
+      case 'editar-livro': formLivro(S.livros.find(x => x.id === id)); break;
+      case 'terminei': { const l = S.livros.find(x => x.id === id); if (confirm(`Terminou “${l.titulo}”?`)) await terminarLivro(l); break; }
+      case 'dia-leitura': {
+        const d = t.dataset.d, ja = S.leituraDias.find(x => x.dia === d);
+        if (ja) { S.leituraDias = S.leituraDias.filter(x => x !== ja); render(); await db(sb.from('leitura_dias').delete().eq('dia', d)); }
+        else { await marcarLeitura(d); render(); toast('Dia marcado 📖'); }
+        break;
+      }
+      case 'meta-livros':
+        abrirFolha({ titulo: 'Meta de leitura', campos: [{ nome: 'm', rotulo: `Quantos livros quer ler em ${new Date().getFullYear()}?`, tipo: 'number', valor: S.perfil?.meta_livros || 12, obrig: true }],
+          salvar: async v => db(sb.from('perfil').update({ meta_livros: Math.max(1, Number(v.m)) }).eq('user_id', S.user.id), 'Meta salva') });
+        break;
       case 'editar-rotina': formRotina(S.rotinas.find(x => x.id === id)); break;
       case 'inbox-tarefa': {
         const i = S.inbox.find(x => x.id === id);
@@ -982,6 +1122,15 @@ document.addEventListener('submit', async e => {
   e.preventDefault();
   const tipo = f.dataset.form, val = f.t?.value.trim();
   try {
+    if (tipo === 'pagina' && val !== '') {
+      const l = S.livros.find(x => x.id === f.dataset.id), nova = Math.max(0, Number(val));
+      const avancou = Math.max(0, nova - (l.pagina_atual || 0));
+      l.pagina_atual = nova;
+      await db(sb.from('livros').update({ pagina_atual: nova }).eq('id', l.id));
+      await marcarLeitura(hojeISO(), avancou);
+      if (l.paginas && nova >= l.paginas && confirm(`Chegou na última página! Terminou “${l.titulo}”?`)) await terminarLivro(l);
+      else { render(); toast(avancou ? `+${avancou} páginas hoje 📖` : 'Página atualizada'); }
+    }
     if (tipo === 'tarefas' && val) {
       const textos = val.split('\n').map(x => x.replace(/^\s*([-•*]|\d+[.)]|\[ ?\])\s*/, '').trim()).filter(Boolean);
       await addTarefas(S.diaTarefas || hojeISO(), textos);
