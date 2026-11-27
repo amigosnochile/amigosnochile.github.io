@@ -231,6 +231,18 @@ nav.tabs .wrap{display:grid;grid-template-columns:repeat(6,1fr)}
     <div class="campo"><label for="l-senha">Senha</label><input id="l-senha" type="password" autocomplete="current-password" required></div>
     <p id="l-erro" class="small" style="color:var(--bad);margin-bottom:10px" hidden></p>
     <button class="btn pri" style="width:100%">Entrar</button>
+    <button type="button" class="btn ghost" style="width:100%;margin-top:8px" id="b-criar">Recebi um convite: criar conta</button>
+  </form>
+  <form class="card" id="form-cadastro" hidden>
+    <h1>Criar conta</h1>
+    <p class="muted" style="margin-bottom:16px">Use o código de convite que te passaram.</p>
+    <div class="campo"><label for="c-nome">Seu nome</label><input id="c-nome" autocomplete="given-name" required></div>
+    <div class="campo"><label for="c-email">E-mail</label><input id="c-email" type="email" autocomplete="username" required></div>
+    <div class="campo"><label for="c-senha">Crie uma senha</label><input id="c-senha" type="password" autocomplete="new-password" minlength="8" required><span class="dica muted small">Pelo menos 8 caracteres.</span></div>
+    <div class="campo"><label for="c-codigo">Código de convite</label><input id="c-codigo" autocapitalize="off" autocomplete="off" required></div>
+    <p id="c-erro" class="small" style="color:var(--bad);margin-bottom:10px" hidden></p>
+    <button class="btn pri" style="width:100%">Criar conta</button>
+    <button type="button" class="btn ghost" style="width:100%;margin-top:8px" id="b-voltar">Já tenho conta: entrar</button>
   </form>
 </div>
 
@@ -361,6 +373,9 @@ async function funcao(acao, extra = {}) {
 // ---------- render ----------
 function render() {
   document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-current', t.dataset.v === (S.view === 'habitos' ? 'metas' : S.view) ? 'page' : 'false'));
+  const temMakes = S.eventos.some(e => RE_MAKE.test(e.titulo));
+  $('.tab[data-v=makes]').hidden = !temMakes;
+  $('nav.tabs .wrap').style.gridTemplateColumns = `repeat(${temMakes ? 6 : 5},1fr)`;
   const n = S.inbox.length, bd = $('#badge-caixa');
   bd.hidden = !n; bd.textContent = n;
   renderHero();
@@ -1175,6 +1190,21 @@ $('#form-login').onsubmit = async e => {
   const { error } = await sb.auth.signInWithPassword({ email: $('#l-email').value.trim(), password: $('#l-senha').value });
   if (error) { const p = $('#l-erro'); p.textContent = 'E-mail ou senha errados.'; p.hidden = false; return; }
   location.reload();
+};
+$('#b-criar').onclick = () => { $('#form-login').hidden = true; $('#form-cadastro').hidden = false; $('#c-nome').focus(); };
+$('#b-voltar').onclick = () => { $('#form-cadastro').hidden = true; $('#form-login').hidden = false; };
+$('#form-cadastro').onsubmit = async e => {
+  e.preventDefault();
+  const erro = msg => { const p = $('#c-erro'); p.textContent = msg; p.hidden = false; };
+  const b = e.target.querySelector('.btn.pri'); b.disabled = true; b.textContent = 'Criando…';
+  const dados = { nome: $('#c-nome').value.trim(), email: $('#c-email').value.trim(), senha: $('#c-senha').value, codigo: $('#c-codigo').value.trim() };
+  try {
+    const { data, error } = await sb.functions.invoke('meu-dia', { body: { acao: 'cadastrar', ...dados } });
+    if (error) { let m = 'Não consegui criar a conta.'; try { m = (await error.context.json()).erro || m; } catch (_) {} throw new Error(m); }
+    const r = await sb.auth.signInWithPassword({ email: dados.email, password: dados.senha });
+    if (r.error) throw new Error('Conta criada, mas não consegui entrar. Tente pela tela de login.');
+    location.reload();
+  } catch (err) { erro(err.message); b.disabled = false; b.textContent = 'Criar conta'; }
 };
 iniciar();
 </script>
