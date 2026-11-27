@@ -315,6 +315,23 @@ Deno.serve(async (req) => {
     return json({ ok: true, perfis: perfis?.length ?? 0 });
   }
 
+  // Cadastro com código de convite (sem login)
+  if (body.acao === "cadastrar") {
+    const codigo = String(body.codigo ?? "").trim().toLowerCase();
+    if (!env("CONVITE") || codigo !== env("CONVITE").toLowerCase()) return json({ erro: "Código de convite inválido." }, 403);
+    const email = String(body.email ?? "").trim().toLowerCase(), senha = String(body.senha ?? "");
+    const nome = String(body.nome ?? "").trim().slice(0, 60) || null;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ erro: "E-mail inválido." }, 400);
+    if (senha.length < 8) return json({ erro: "A senha precisa ter pelo menos 8 caracteres." }, 400);
+    const { data: novo, error } = await admin.auth.admin.createUser({ email, password: senha, email_confirm: true });
+    if (error || !novo?.user) {
+      const ja = /already|exists|registered/i.test(error?.message ?? "");
+      return json({ erro: ja ? "Já existe uma conta com esse e-mail. Use a tela de login." : "Não consegui criar a conta." }, 400);
+    }
+    await admin.from("perfil").insert({ user_id: novo.user.id, nome, email_resumo: email });
+    return json({ ok: true });
+  }
+
   // Chamada do app: precisa estar logada
   const jwt = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
   const { data: u } = await admin.auth.getUser(jwt);
